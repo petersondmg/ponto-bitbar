@@ -21,10 +21,20 @@ EXIGIR_CONFIRMACAO=no
 
 last_event_path=$PONTO_DIR/.event
 
+locked_script=$(cat <<EOF
+import sys,Quartz;
+sys.exit(0 if "CGSSessionScreenIsLocked" in Quartz.CGSessionCopyCurrentDictionary() else -1)
+EOF
+)
+
 idle() {
     echo $((`ioreg -c IOHIDSystem | sed -e \
         '/HIDIdleTime/ !{ d' -e 't' -e '}' -e 's/.* = //g' -e 'q'` \
         / 1000000000))
+}
+
+screen_is_locked() {
+    python -c "$locked_script"
 }
 
 save_event() {
@@ -168,8 +178,8 @@ main() {
         if [[ "$last_event" = *"entrada"* ]]; then
             last_event=`save_event saida`
         fi
-    else
-    # is not idle:
+    elif ! screen_is_locked; then
+        # is not idle neither locked:
         if [[ -z "$last_event" ]]; then
             last_event=`save_event entrada`
         elif [[ ! "$last_event" = *"$(date +'%Y-%m-%d')"* ]]; then
